@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablepoker</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Home View -->
+    <div id="home-view" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: var(--bg-dark); position: absolute; top:0; left:0; right:0; bottom:0; z-index: 10000;">
+        <h1 style="font-size: 5rem; margin-bottom: 30px;"><span class="spade">♠</span> Tablepoker <span class="heart">♥</span></h1>
+        <div style="background: #111827; padding: 40px; border-radius: 16px; border-top: 4px solid var(--primary); width: 450px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <p style="color: #9ca3af; margin-bottom: 25px; font-size: 1.1rem;">The most transparent multiplayer poker experience.</p>
+            <button class="btn btn-primary" style="width: 100%; font-size: 1.3rem; padding: 18px; margin-bottom: 25px; border-radius: 8px;" onclick="createGame()">Create New Game</button>
+            
+            <div style="display: flex; align-items: center; margin-bottom: 25px;">
+                <hr style="flex: 1; border-color: #374151;">
+                <span style="padding: 0 15px; color: #6b7280; font-weight: bold; font-size: 0.9rem;">OR JOIN EXISTING</span>
+                <hr style="flex: 1; border-color: #374151;">
+            </div>
+            
+            <input type="text" id="join-code" placeholder="Enter 4-Letter Code" maxlength="4" style="width: 100%; padding: 15px; border-radius: 8px; background: #1f2937; color: white; border: 2px solid #374151; margin-bottom: 15px; text-align: center; font-size: 1.5rem; text-transform: uppercase; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#374151'">
+            <button class="btn btn-secondary" style="width: 100%; font-size: 1.3rem; padding: 18px; border-radius: 8px;" onclick="joinRoom()">Join Game</button>
+        </div>
+    </div>
+
+    <!-- Game View -->
+    <div id="game-view" style="display: none;">
+    <div class="app-container">
+        
+        <header>
+            <h1><span class="spade">♠</span> Tablepoker <span class="heart">♥</span> <span id="room-code-display" style="font-size: 0.5em; color: #9ca3af; margin-left: 15px; background: #374151; padding: 4px 10px; border-radius: 6px;"></span></h1>
+            <div class="header-right">
+
+                <button id="btn-change-dealer" class="btn btn-primary" style="display:none;" onclick="changeDealer()"><i class="fas fa-user-tie"></i> Change Dealer</button>
+                <button class="btn btn-secondary" onclick="openLedger()"><i class="fas fa-file-invoice-dollar"></i> Ledger</button>
+                <button class="btn btn-secondary" onclick="openSettings()"><i class="fas fa-cog"></i></button>
+                <button id="btn-pause" class="btn btn-primary" style="display:none;" onclick="togglePause()"><i class="fas fa-pause"></i> Pause Auto-Deal</button>
+                <button id="btn-start" class="btn btn-primary" style="display:none;" onclick="startGame()"><i class="fas fa-play"></i> Start Game</button>
+                <button id="btn-sit-out" class="btn btn-secondary" style="display:none;" onclick="toggleSitOut()"><i class="fas fa-chair"></i> Sit Out</button>
+                <button id="btn-leave" class="btn btn-danger" style="display:none;" onclick="leaveSeat()"><i class="fas fa-sign-out-alt"></i> Leave</button>
+                <div class="status-badge" id="conn-status">Connecting...</div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Sidebar Info & Chat -->
+            <div class="sidebar">
+                <div class="panel verification-panel">
+                    <h3><i class="fas fa-shield-alt"></i> Provably Fair</h3>
+                    <div class="hash-box">
+                        <label>Current Deck Hash:</label>
+                        <input type="text" id="hash-display" readonly placeholder="Waiting for hand...">
+                    </div>
+
+                    <div id="verify-section" style="display:none; margin-top:15px;">
+                        <label>Server Secret:</label>
+                        <input type="text" id="secret-display" readonly>
+                        
+                        <button id="btn-run-verify" class="btn btn-verify" style="margin-top:10px; width:100%;">Verify Deck Integrity</button>
+                        <p id="verify-result" class="small-text" style="margin-top:5px; font-weight:bold;"></p>
+                    </div>
+                </div>
+
+                <div class="panel chat-panel">
+                    <h3>Event Log & Chat</h3>
+                    <div class="chat-messages" id="chat-messages"></div>
+                    <div style="display:flex; margin-top: 10px;">
+                        <input type="text" id="chat-input" placeholder="Type a message..." style="flex:1; padding:8px; border-radius:4px 0 0 4px; border:none; background:#374151; color:white; outline:none;" onkeypress="if(event.key==='Enter') sendChat()">
+                        <button class="btn btn-primary" style="border-radius:0 4px 4px 0; padding:8px 12px;" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div> <!-- End sidebar -->
+
+            <div class="table-container">
+                
+                <!-- Action Controls -->
+                <div class="action-bar" id="action-bar">
+                    <div class="call-amt" id="call-amt">To Call: 0</div>
+                    <div class="action-bar-row">
+                        <button class="btn btn-danger" onclick="sendAction('fold')">Fold</button>
+                        <button class="btn btn-secondary" onclick="sendAction('call')" id="btn-call">Check/Call</button>
+                    </div>
+                    <div class="raise-group">
+                        <input type="number" id="raise-input" value="50" min="10" step="10" style="width: 80px; padding: 10px; border-radius: 6px; background: #111827; color: white; border: 1px solid #374151;">
+                        <button class="btn btn-primary" onclick="sendAction('raise')">Raise</button>
+                    </div>
+                </div> <!-- End action bar -->
+
+                <div class="table-wrapper">
+                <div class="poker-table">
+                    <div class="dealer-avatar">
+                        <img src="dealer.jpg" class="dealer-img" alt="Dealer">
+                    </div>
+                    <!-- Dealer Deck position -->
+                    <div class="dealer-deck" id="dealer-deck"></div>
+
+                    <!-- Pot -->
+                    <div class="pot-display" id="pot-display">
+                        <i class="fas fa-coins" style="color: #fbbf24;"></i> Pot: 0
+                    </div>
+
+                    <!-- Community Cards -->
+                    <div class="community-cards" id="community-cards">
+                        <div class="card-slot" id="slot-0"></div>
+                        <div class="card-slot" id="slot-1"></div>
+                        <div class="card-slot" id="slot-2"></div>
+                        <div class="card-slot" id="slot-3"></div>
+                        <div class="card-slot" id="slot-4"></div>
+                    </div>
+                    
+                    <!-- Players Container -->
+                    <div id="players-container" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 25;"></div>
+                    
+                    <div id="win-fx-container" style="position: absolute; width: 100%; height: 100%; pointer-events: none; top: 0; left: 0; z-index: 500;"></div>
+                </div> <!-- End poker-table -->
+                </div> <!-- End table-wrapper -->
+                
+                <!-- Bottom Right Floating Controls -->
+                <button id="btn-extra-time" class="btn btn-secondary" style="position: absolute; bottom: 85px; right: 30px; display: none; z-index: 100; font-size: 0.9rem;">
+                    <i class="fas fa-hourglass-plus"></i> Extra Time (+20s)
+                </button>
+                
+                <button id="btn-reveal" class="btn btn-verify" style="position: absolute; bottom: 30px; right: 30px; display: none; z-index: 100;">
+                    <i class="fas fa-eye"></i> Reveal My Cards
+                </button>
+            </div> <!-- End table-container -->
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-cog"></i> Settings</h2>
+            <div class="setting-row">
+                <label>Blinds Structure</label>
+                <select id="blind-select" onchange="changeBlinds()" style="padding: 5px; border-radius: 4px; background: #374151; color: white; border: none;">
+                    <option value="5/10">5 / 10</option>
+                    <option value="10/20" selected>10 / 20</option>
+                    <option value="50/100">50 / 100</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <label>Sound Effects</label>
+                <input type="checkbox" id="setting-sound" checked>
+            </div>
+            <div class="setting-row">
+                <label>Sidebar Position</label>
+                <select id="sidebar-select" onchange="toggleSidebar()" style="padding: 5px; border-radius: 4px; background: #374151; color: white; border: none;">
+                    <option value="left" selected>Left</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="closeModal('settings-modal')">Save & Close</button>
+        </div>
+    </div>
+
+    <!-- Join Table Modal (Visible by default in game-view) -->
+    <div id="join-modal" class="modal" style="background: var(--bg-dark); z-index: 9999;">
+        <div class="modal-content" style="text-align: center; border-top: 4px solid var(--primary);">
+            <h2 style="color: white; border: none;"><i class="fas fa-chair" style="color: var(--primary);"></i> Join Table</h2>
+            <p style="color: #9ca3af; margin-bottom: 20px; font-size: 0.9rem;">Welcome to Provably Fair Poker. Please take a seat.</p>
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="join-name" placeholder="Your Name" value="Player" style="width: 100%; padding: 12px; border-radius: 6px; background: #111827; color: white; border: 1px solid #374151; outline: none; text-align: center; font-size: 1rem;">
+            </div>
+            <div style="margin-bottom: 25px;">
+                <input type="number" id="join-buyin" placeholder="Buy-in (e.g. 5000)" value="5000" min="100" style="width: 100%; padding: 12px; border-radius: 6px; background: #111827; color: white; border: 1px solid #374151; outline: none; text-align: center; font-size: 1rem;">
+            </div>
+            <button class="btn btn-primary" style="width: 100%; font-size: 1.1rem; padding: 12px;" onclick="joinGame()">Sit Down & Play</button>
+        </div>
+    </div>
+
+    <div id="ledger-modal" class="modal">
+        <div class="modal-content" style="width: 500px;">
+            <h2><i class="fas fa-file-invoice-dollar"></i> Game Ledger</h2>
+            <table class="ledger-table">
+                <thead>
+                    <tr><th>Player</th><th>Buy-In</th><th>Current</th><th>Net</th></tr>
+                </thead>
+                <tbody id="ledger-body"></tbody>
+            </table>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="downloadLedger()"><i class="fas fa-download"></i> Download CSV</button>
+                <button class="btn btn-primary" style="flex: 1;" onclick="closeModal('ledger-modal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    </div> <!-- End game-view -->
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
